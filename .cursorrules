@@ -77,7 +77,13 @@
 
 ### 环境变量
 - 必须设置`OPENAI_API_KEY`
+- 可选设置`OPENAI_API_BASE`用于自定义API端点
 - 使用`python-dotenv`加载环境变量
+
+### Base URL配置
+- 支持自定义OpenAI兼容的API端点
+- 通过环境变量`OPENAI_API_BASE`或配置类设置
+- 优先级：配置类 > 环境变量 > 默认端点
 
 ## 前端开发规范
 

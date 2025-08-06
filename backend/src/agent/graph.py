@@ -37,7 +37,10 @@ if os.getenv("OPENAI_API_KEY") is None:
     raise ValueError("OPENAI_API_KEY is not set")
 
 # Used for OpenAI API
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_API_BASE")  # 支持自定义base URL
+)
 
 
 # Nodes
@@ -66,6 +69,7 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
         temperature=1.0,
         max_retries=2,
         api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE"),
     )
     structured_llm = llm.with_structured_output(SearchQueryList)
 
@@ -177,6 +181,7 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         temperature=1.0,
         max_retries=2,
         api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE"),
     )
     result = llm.with_structured_output(Reflection).invoke(formatted_prompt)
 
@@ -256,6 +261,7 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
         temperature=0,
         max_retries=2,
         api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE"),
     )
     result = llm.invoke(formatted_prompt)
 

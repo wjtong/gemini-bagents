@@ -13,11 +13,13 @@
 - `query_generator_model`: `gemini-2.0-flash` → `gpt-4o-mini`
 - `reflection_model`: `gemini-2.5-flash` → `gpt-4o`
 - `answer_model`: `gemini-2.5-pro` → `gpt-4o`
+- 新增 `openai_api_base`: 支持自定义OpenAI兼容API端点
 
 ### 3. 核心代码更新 (`backend/src/agent/graph.py`)
 - 导入更改：`from google.genai import Client` → `from openai import OpenAI`
 - 导入更改：`from langchain_google_genai import ChatGoogleGenerativeAI` → `from langchain_openai import ChatOpenAI`
 - API密钥环境变量：`GEMINI_API_KEY` → `OPENAI_API_KEY`
+- 新增base URL支持：所有LLM实例都支持`base_url`参数，使用`OPENAI_API_BASE`环境变量
 - 更新了所有LLM实例化代码
 - 简化了web_research函数（移除了Google Search API的特定实现）
 
@@ -33,9 +35,9 @@
   - `gemini-2.5-pro-preview-05-06` → `gpt-4-turbo`
 
 ### 6. 配置文件更新
-- `docker-compose.yml`: 更新环境变量和镜像名称
-- `README.md`: 更新了所有Gemini相关的描述和说明
-- `backend/examples/cli_research.py`: 更新默认模型
+- `docker-compose.yml`: 更新环境变量和镜像名称，新增`OPENAI_API_BASE`支持
+- `README.md`: 更新了所有Gemini相关的描述和说明，添加base URL配置说明
+- `backend/examples/cli_research.py`: 更新默认模型，新增`--openai-api-base`参数
 
 ### 7. 文档更新
 - 更新了项目标题和描述
@@ -52,6 +54,7 @@
 
 ### 环境变量
 用户需要将环境变量从 `GEMINI_API_KEY` 更改为 `OPENAI_API_KEY`
+可选设置 `OPENAI_API_BASE` 用于自定义OpenAI兼容的API端点
 
 ### 模型选择
 前端现在提供以下OpenAI模型选项：
@@ -59,16 +62,22 @@
 - GPT-4o (平衡性能和成本)
 - GPT-4 Turbo (最高性能)
 
+### Base URL配置
+- 支持通过环境变量 `OPENAI_API_BASE` 设置自定义API端点
+- 支持通过CLI参数 `--openai-api-base` 设置自定义API端点
+- 支持通过配置类设置自定义API端点
+
 ## 测试建议
 
 1. 确保设置了正确的 `OPENAI_API_KEY` 环境变量
 2. 测试前端模型选择功能
 3. 验证后端API调用是否正常工作
 4. 测试Docker部署流程
+5. 测试自定义base URL配置
 
 ## 后续工作
 
 1. 集成适当的web搜索API
 2. 优化citation处理逻辑
 3. 添加更多OpenAI模型选项
-4. 性能测试和优化 
+4. 性能测试和优化

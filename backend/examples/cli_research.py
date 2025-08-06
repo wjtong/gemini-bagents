@@ -24,6 +24,11 @@ def main() -> None:
         default="gpt-4o",
         help="Model for the final answer",
     )
+    parser.add_argument(
+        "--openai-api-base",
+        default=None,
+        help="Custom OpenAI-compatible API base URL",
+    )
     args = parser.parse_args()
 
     state = {
@@ -33,7 +38,16 @@ def main() -> None:
         "reasoning_model": args.reasoning_model,
     }
 
-    result = graph.invoke(state)
+    # Create config with base URL if provided
+    config = None
+    if args.openai_api_base:
+        config = {
+            "configurable": {
+                "openai_api_base": args.openai_api_base
+            }
+        }
+
+    result = graph.invoke(state, config=config)
     messages = result.get("messages", [])
     if messages:
         print(messages[-1].content)

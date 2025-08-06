@@ -29,6 +29,13 @@ class Configuration(BaseModel):
         },
     )
 
+    openai_api_base: Optional[str] = Field(
+        default=None,
+        metadata={
+            "description": "The base URL for OpenAI API. If not set, uses the default OpenAI API endpoint."
+        },
+    )
+
     number_of_initial_queries: int = Field(
         default=3,
         metadata={"description": "The number of initial search queries to generate."},
@@ -49,10 +56,14 @@ class Configuration(BaseModel):
         )
 
         # Get raw values from environment or config
-        raw_values: dict[str, Any] = {
-            name: os.environ.get(name.upper(), configurable.get(name))
-            for name in cls.model_fields.keys()
-        }
+        raw_values: dict[str, Any] = {}
+        for name in cls.model_fields.keys():
+            # 特殊处理openai_api_base字段的环境变量映射
+            if name == "openai_api_base":
+                env_value = os.environ.get("OPENAI_API_BASE", configurable.get(name))
+            else:
+                env_value = os.environ.get(name.upper(), configurable.get(name))
+            raw_values[name] = env_value
 
         # Filter out None values
         values = {k: v for k, v in raw_values.items() if v is not None}

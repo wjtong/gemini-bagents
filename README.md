@@ -30,9 +30,11 @@ Follow these steps to get the application running locally for development and te
 -   Node.js and npm (or yarn/pnpm)
 -   Python 3.11+
 -   **`OPENAI_API_KEY`**: The backend agent requires an OpenAI API key.
+-   **`OPENAI_API_BASE`** (optional): If you're using a custom OpenAI-compatible API endpoint, set this to your base URL.
     1.  Navigate to the `backend/` directory.
     2.  Create a file named `.env` by copying the `backend/.env.example` file.
     3.  Open the `.env` file and add your OpenAI API key: `OPENAI_API_KEY="YOUR_ACTUAL_API_KEY"`
+    4.  If using a custom endpoint, add: `OPENAI_API_BASE="YOUR_CUSTOM_BASE_URL"`
 
 **2. Install Dependencies:**
 
@@ -102,7 +104,7 @@ _Note: If you are not running the docker-compose.yml example or exposing the bac
 **2. Run the Production Server:**
 
    ```bash
-   OPENAI_API_KEY=<your_openai_api_key> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
+   OPENAI_API_KEY=<your_openai_api_key> OPENAI_API_BASE=<your_custom_base_url> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
    ```
 
 Open your browser and navigate to `http://localhost:8123/app/` to see the application. The API will be available at `http://localhost:8123`.
