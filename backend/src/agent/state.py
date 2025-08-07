@@ -14,6 +14,7 @@ class OverallState(TypedDict):
     messages: Annotated[list, add_messages]
     search_query: Annotated[list, operator.add]
     web_research_result: Annotated[list, operator.add]
+    data_analysis_result: Annotated[list, operator.add]
     sources_gathered: Annotated[list, operator.add]
     initial_search_query_count: int
     max_research_loops: int
@@ -40,6 +41,11 @@ class QueryGenerationState(TypedDict):
 
 class WebSearchState(TypedDict):
     search_query: str
+    id: str
+
+
+class DataAnalysisState(TypedDict):
+    analysis_query: str
     id: str
 
 

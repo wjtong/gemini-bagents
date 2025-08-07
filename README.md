@@ -10,6 +10,7 @@ This project demonstrates a fullstack application using a React frontend and a L
 - 🧠 Powered by a LangGraph agent for advanced research and conversational AI.
 - 🔍 Dynamic search query generation using OpenAI GPT models.
 - 🌐 Integrated web research via search APIs.
+- 📊 **NEW**: Intelligent data analysis for numerical queries and calculations.
 - 🤔 Reflective reasoning to identify knowledge gaps and refine searches.
 - 📄 Generates answers with citations from gathered sources.
 - 🔄 Hot-reloading for both frontend and backend during development.
@@ -69,11 +70,26 @@ The core of the backend is a LangGraph agent defined in `backend/src/agent/graph
 
 <img src="./agent.png" title="Agent Flow" alt="Agent Flow" width="50%">
 
-1.  **Generate Initial Queries:** Based on your input, it generates a set of initial search queries using an OpenAI GPT model.
-2.  **Web Research:** For each query, it uses the GPT model with search APIs to find relevant web pages.
-3.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the search results to determine if the information is sufficient or if there are knowledge gaps. It uses a GPT model for this reflection process.
-4.  **Iterative Refinement:** If gaps are found or the information is insufficient, it generates follow-up queries and repeats the web research and reflection steps (up to a configured maximum number of loops).
-5.  **Finalize Answer:** Once the research is deemed sufficient, the agent synthesizes the gathered information into a coherent answer, including citations from the web sources, using a GPT model.
+1.  **Task Type Determination:** The agent first analyzes the user's query to determine whether it requires web research or data analysis.
+2.  **Generate Initial Queries:** Based on your input, it generates a set of initial search queries (for web research) or data analysis queries (for numerical analysis) using an OpenAI GPT model.
+3.  **Web Research or Data Analysis:** 
+    - For web research: Uses the GPT model with search APIs to find relevant web pages.
+    - For data analysis: Performs numerical analysis, calculations, and statistical processing.
+4.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the results to determine if the information is sufficient or if there are knowledge gaps. It uses a GPT model for this reflection process.
+5.  **Iterative Refinement:** If gaps are found or the information is insufficient, it generates follow-up queries and repeats the research/analysis steps (up to a configured maximum number of loops).
+6.  **Finalize Answer:** Once the research is deemed sufficient, the agent synthesizes the gathered information into a coherent answer, including citations from the sources, using a GPT model.
+
+### Task Type Examples
+
+**Web Research Queries:**
+- "What are the latest developments in AI technology?"
+- "What are the benefits of renewable energy?"
+- "How does machine learning work?"
+
+**Data Analysis Queries:**
+- "What is the current stock price of Apple?"
+- "Calculate the compound annual growth rate of Tesla stock over the past 5 years"
+- "How has the population of New York changed in the last decade?"
 
 ## CLI Example
 
@@ -86,6 +102,12 @@ cd backend
 python examples/cli_research.py "What are the latest trends in renewable energy?"
 ```
 
+You can also test the data analysis functionality:
+
+```bash
+cd backend
+python test_data_analysis.py
+```
 
 ## Deployment
 

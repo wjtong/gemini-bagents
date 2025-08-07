@@ -1,6 +1,6 @@
 import os
 
-from agent.tools_and_schemas import SearchQueryList, Reflection
+from agent.tools_and_schemas import SearchQueryList, Reflection, TaskType, DataAnalysisQuery
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage
 from langgraph.types import Send
@@ -14,12 +14,16 @@ from agent.state import (
     QueryGenerationState,
     ReflectionState,
     WebSearchState,
+    DataAnalysisState,
 )
 from agent.configuration import Configuration
 from agent.prompts import (
     get_current_date,
     query_writer_instructions,
+    task_type_instructions,
+    data_analysis_instructions,
     web_searcher_instructions,
+    data_analyzer_instructions,
     reflection_instructions,
     answer_instructions,
 )
@@ -44,6 +48,40 @@ openai_client = OpenAI(
 
 
 # Nodes
+def determine_task_type(state: OverallState, config: RunnableConfig) -> OverallState:
+    """LangGraph node that determines whether to perform web research or data analysis.
+
+    Uses OpenAI GPT to analyze the user's question and determine the appropriate task type.
+
+    Args:
+        state: Current graph state containing the User's question
+        config: Configuration for the runnable, including LLM provider settings
+
+    Returns:
+        Dictionary with state update, including task_type key
+    """
+    configurable = Configuration.from_runnable_config(config)
+
+    # init OpenAI GPT
+    llm = ChatOpenAI(
+        model=configurable.query_generator_model,
+        temperature=0.5,
+        max_retries=2,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE"),
+    )
+    structured_llm = llm.with_structured_output(TaskType)
+
+    # Format the prompt
+    formatted_prompt = task_type_instructions.format(
+        research_topic=get_research_topic(state["messages"]),
+    )
+    
+    # Determine the task type
+    result = structured_llm.invoke(formatted_prompt)
+    return {"task_type": result.task_type}
+
+
 def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerationState:
     """LangGraph node that generates search queries based on the User's question.
 
@@ -85,6 +123,40 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
     return {"search_query": result.query}
 
 
+def generate_data_analysis_query(state: OverallState, config: RunnableConfig) -> OverallState:
+    """LangGraph node that generates data analysis queries based on the User's question.
+
+    Uses OpenAI GPT to create optimized data analysis queries for numerical analysis.
+
+    Args:
+        state: Current graph state containing the User's question
+        config: Configuration for the runnable, including LLM provider settings
+
+    Returns:
+        Dictionary with state update, including data_analysis_query key
+    """
+    configurable = Configuration.from_runnable_config(config)
+
+    # init OpenAI GPT
+    llm = ChatOpenAI(
+        model=configurable.query_generator_model,
+        temperature=1.0,
+        max_retries=2,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("OPENAI_API_BASE"),
+    )
+    structured_llm = llm.with_structured_output(DataAnalysisQuery)
+
+    # Format the prompt
+    formatted_prompt = data_analysis_instructions.format(
+        research_topic=get_research_topic(state["messages"]),
+    )
+    
+    # Generate the data analysis queries
+    result = structured_llm.invoke(formatted_prompt)
+    return {"data_analysis_query": result.analysis_query}
+
+
 def continue_to_web_research(state: QueryGenerationState):
     """LangGraph node that sends the search queries to the web research node.
 
@@ -93,6 +165,17 @@ def continue_to_web_research(state: QueryGenerationState):
     return [
         Send("web_research", {"search_query": search_query, "id": int(idx)})
         for idx, search_query in enumerate(state["search_query"])
+    ]
+
+
+def continue_to_data_analysis(state: OverallState):
+    """LangGraph node that sends the analysis queries to the data analysis node.
+
+    This is used to spawn n number of data analysis nodes, one for each analysis query.
+    """
+    return [
+        Send("data_analysis", {"analysis_query": analysis_query, "id": int(idx)})
+        for idx, analysis_query in enumerate(state["data_analysis_query"])
     ]
 
 
@@ -149,6 +232,54 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     }
 
 
+def data_analysis(state: DataAnalysisState, config: RunnableConfig) -> OverallState:
+    """LangGraph node that performs data analysis using numerical data and calculations.
+
+    Executes data analysis using OpenAI GPT to analyze numerical data and perform calculations.
+
+    Args:
+        state: Current graph state containing the analysis query
+        config: Configuration for the runnable, including analysis settings
+
+    Returns:
+        Dictionary with state update, including data_analysis_result
+    """
+    # Configure
+    configurable = Configuration.from_runnable_config(config)
+    formatted_prompt = data_analyzer_instructions.format(
+        research_topic=state["analysis_query"],
+    )
+
+    # Uses the OpenAI client for data analysis
+    response = openai_client.chat.completions.create(
+        model=configurable.query_generator_model,
+        messages=[{"role": "user", "content": formatted_prompt}],
+        temperature=0,
+    )
+    
+    # Create analysis result
+    analysis_result = response.choices[0].message.content or "No analysis results found."
+    
+    # Create a simple citation structure for data analysis
+    citations = [{
+        "start_index": 0,
+        "end_index": len(analysis_result),
+        "segments": [{
+            "label": "Data Analysis",
+            "short_url": f"https://analysis.id/{state['id']}",
+            "value": "https://data.example.com"
+        }]
+    }]
+    
+    modified_text = insert_citation_markers(analysis_result, citations)
+    sources_gathered = [item for citation in citations for item in citation["segments"]]
+
+    return {
+        "sources_gathered": sources_gathered,
+        "data_analysis_result": [modified_text],
+    }
+
+
 def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
     """LangGraph node that identifies knowledge gaps and generates potential follow-up queries.
 
@@ -170,10 +301,20 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
 
     # Format the prompt
     current_date = get_current_date()
+    
+    # Combine web research and data analysis results
+    all_results = []
+    if state.get("web_research_result"):
+        all_results.extend(state["web_research_result"])
+    if state.get("data_analysis_result"):
+        all_results.extend(state["data_analysis_result"])
+    
+    summaries = "\n\n---\n\n".join(all_results) if all_results else "No results available."
+    
     formatted_prompt = reflection_instructions.format(
         current_date=current_date,
         research_topic=get_research_topic(state["messages"]),
-        summaries="\n\n---\n\n".join(state["web_research_result"]),
+        summaries=summaries,
     )
     # init Reasoning Model
     llm = ChatOpenAI(
@@ -190,7 +331,7 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         "knowledge_gap": result.knowledge_gap,
         "follow_up_queries": result.follow_up_queries,
         "research_loop_count": state["research_loop_count"],
-        "number_of_ran_queries": len(state["search_query"]),
+        "number_of_ran_queries": len(state.get("search_query", [])) + len(state.get("data_analysis_query", [])),
     }
 
 
@@ -219,16 +360,30 @@ def evaluate_research(
     if state["is_sufficient"] or state["research_loop_count"] >= max_research_loops:
         return "finalize_answer"
     else:
-        return [
-            Send(
-                "web_research",
-                {
-                    "search_query": follow_up_query,
-                    "id": state["number_of_ran_queries"] + int(idx),
-                },
-            )
-            for idx, follow_up_query in enumerate(state["follow_up_queries"])
-        ]
+        # Determine task type for follow-up queries based on original task type
+        task_type = state.get("task_type", "web_research")
+        if task_type == "data_analysis":
+            return [
+                Send(
+                    "data_analysis",
+                    {
+                        "analysis_query": follow_up_query,
+                        "id": state["number_of_ran_queries"] + int(idx),
+                    },
+                )
+                for idx, follow_up_query in enumerate(state["follow_up_queries"])
+            ]
+        else:
+            return [
+                Send(
+                    "web_research",
+                    {
+                        "search_query": follow_up_query,
+                        "id": state["number_of_ran_queries"] + int(idx),
+                    },
+                )
+                for idx, follow_up_query in enumerate(state["follow_up_queries"])
+            ]
 
 
 def finalize_answer(state: OverallState, config: RunnableConfig):
@@ -249,10 +404,20 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
 
     # Format the prompt
     current_date = get_current_date()
+    
+    # Combine web research and data analysis results
+    all_results = []
+    if state.get("web_research_result"):
+        all_results.extend(state["web_research_result"])
+    if state.get("data_analysis_result"):
+        all_results.extend(state["data_analysis_result"])
+    
+    summaries = "\n---\n\n".join(all_results) if all_results else "No results available."
+    
     formatted_prompt = answer_instructions.format(
         current_date=current_date,
         research_topic=get_research_topic(state["messages"]),
-        summaries="\n---\n\n".join(state["web_research_result"]),
+        summaries=summaries,
     )
 
     # init Reasoning Model, default to OpenAI GPT
@@ -280,28 +445,63 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
     }
 
 
+def route_by_task_type(state: OverallState):
+    """LangGraph routing function that determines whether to perform web research or data analysis.
+
+    Routes to the appropriate task based on the determined task type.
+
+    Args:
+        state: Current graph state containing the task type
+
+    Returns:
+        String literal indicating the next node to visit ("generate_query" or "generate_data_analysis_query")
+    """
+    task_type = state.get("task_type", "web_research")
+    if task_type == "data_analysis":
+        return "generate_data_analysis_query"
+    else:
+        return "generate_query"
+
+
 # Create our Agent Graph
 builder = StateGraph(OverallState, config_schema=Configuration)
 
 # Define the nodes we will cycle between
+builder.add_node("determine_task_type", determine_task_type)
 builder.add_node("generate_query", generate_query)
+builder.add_node("generate_data_analysis_query", generate_data_analysis_query)
 builder.add_node("web_research", web_research)
+builder.add_node("data_analysis", data_analysis)
 builder.add_node("reflection", reflection)
 builder.add_node("finalize_answer", finalize_answer)
 
-# Set the entrypoint as `generate_query`
-# This means that this node is the first one called
-builder.add_edge(START, "generate_query")
+# Set the entrypoint as `determine_task_type`
+builder.add_edge(START, "determine_task_type")
+
+# Route based on task type
+builder.add_conditional_edges(
+    "determine_task_type", route_by_task_type, ["generate_query", "generate_data_analysis_query"]
+)
+
 # Add conditional edge to continue with search queries in a parallel branch
 builder.add_conditional_edges(
     "generate_query", continue_to_web_research, ["web_research"]
 )
-# Reflect on the web research
+
+# Add conditional edge to continue with data analysis queries in a parallel branch
+builder.add_conditional_edges(
+    "generate_data_analysis_query", continue_to_data_analysis, ["data_analysis"]
+)
+
+# Reflect on the research results (both web research and data analysis)
 builder.add_edge("web_research", "reflection")
+builder.add_edge("data_analysis", "reflection")
+
 # Evaluate the research
 builder.add_conditional_edges(
-    "reflection", evaluate_research, ["web_research", "finalize_answer"]
+    "reflection", evaluate_research, ["web_research", "data_analysis", "finalize_answer"]
 )
+
 # Finalize the answer
 builder.add_edge("finalize_answer", END)
 

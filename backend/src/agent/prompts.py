@@ -34,6 +34,49 @@ Topic: What revenue grew more last year apple stock or the number of people buyi
 Context: {research_topic}"""
 
 
+task_type_instructions = """Analyze the user's question and determine whether it requires web research or data analysis.
+
+Instructions:
+- If the question requires searching for current information, news, trends, or general knowledge, choose 'web_research'
+- If the question requires analyzing numerical data, statistics, financial data, or performing calculations, choose 'data_analysis'
+- Consider the nature of the information needed to answer the question
+
+Examples:
+- "What are the latest developments in AI?" -> web_research
+- "What is the current stock price of Apple?" -> data_analysis
+- "How has the population of New York changed in the last decade?" -> data_analysis
+- "What are the benefits of renewable energy?" -> web_research
+
+Format your response as a JSON object with these exact keys:
+- "task_type": Either "web_research" or "data_analysis"
+- "rationale": Brief explanation of why this task type was chosen
+
+Context: {research_topic}"""
+
+
+data_analysis_instructions = """Generate data analysis queries to gather numerical data, statistics, and perform calculations for the research topic.
+
+Instructions:
+- Focus on queries that will help gather numerical data, statistics, financial information, or perform calculations
+- Each query should target specific data sources or analysis tools
+- Queries should be designed to extract quantitative information
+- Consider using data sources like financial APIs, statistical databases, or calculation tools
+
+Format your response as a JSON object with these exact keys:
+- "rationale": Brief explanation of why these analysis queries are relevant
+- "analysis_query": A list of data analysis queries
+
+Example:
+```json
+{{
+    "rationale": "To analyze the financial performance comparison, we need specific numerical data on revenue growth, stock performance, and sales metrics. These queries target quantitative financial data sources.",
+    "analysis_query": ["Apple revenue 2024 vs 2023", "Apple stock price performance 2024", "iPhone sales data 2024"]
+}}
+```
+
+Context: {research_topic}"""
+
+
 web_searcher_instructions = """Conduct targeted Google Searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable text artifact.
 
 Instructions:
@@ -46,6 +89,21 @@ Instructions:
 Research Topic:
 {research_topic}
 """
+
+
+data_analyzer_instructions = """Perform data analysis on "{research_topic}" to extract numerical insights and perform calculations.
+
+Instructions:
+- Focus on gathering numerical data, statistics, and performing calculations
+- Use available data sources to extract quantitative information
+- Perform relevant calculations and statistical analysis
+- Present findings in a clear, structured format with numerical results
+- Include data sources and methodology where applicable
+
+Research Topic:
+{research_topic}
+"""
+
 
 reflection_instructions = """You are an expert research assistant analyzing summaries about "{research_topic}".
 
@@ -76,8 +134,8 @@ Example:
 Reflect carefully on the Summaries to identify knowledge gaps and produce a follow-up query. Then, produce your output following this JSON format:
 
 Summaries:
-{summaries}
-"""
+{summaries}"""
+
 
 answer_instructions = """Generate a high-quality answer to the user's question based on the provided summaries.
 

@@ -21,3 +21,21 @@ class Reflection(BaseModel):
     follow_up_queries: List[str] = Field(
         description="A list of follow-up queries to address the knowledge gap."
     )
+
+
+class TaskType(BaseModel):
+    task_type: str = Field(
+        description="The type of task to perform: 'web_research' for web search or 'data_analysis' for data analysis."
+    )
+    rationale: str = Field(
+        description="A brief explanation of why this task type was chosen."
+    )
+
+
+class DataAnalysisQuery(BaseModel):
+    analysis_query: List[str] = Field(
+        description="A list of data analysis queries to be used for data analysis."
+    )
+    rationale: str = Field(
+        description="A brief explanation of why these analysis queries are relevant to the research topic."
+    )
