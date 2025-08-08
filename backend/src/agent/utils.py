@@ -1,141 +1,159 @@
-from typing import Any, Dict, List
-from langchain_core.messages import AnyMessage, AIMessage, HumanMessage
+import re
+from typing import List, Dict, Any
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine, text, MetaData, inspect
+from agent.configuration import Configuration
 
 
-def get_research_topic(messages: List[AnyMessage]) -> str:
-    """
-    Get the research topic from the messages.
-    """
-    # check if request has a history and combine the messages into a single string
-    if len(messages) == 1:
-        research_topic = messages[-1].content
-    else:
-        research_topic = ""
-        for message in messages:
-            if isinstance(message, HumanMessage):
-                research_topic += f"User: {message.content}\n"
-            elif isinstance(message, AIMessage):
-                research_topic += f"Assistant: {message.content}\n"
-    return research_topic
-
-
-def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
-    """
-    Create a map of the search urls (very long) to a short url with a unique id for each url.
-    Ensures each original URL gets a consistent shortened form while maintaining uniqueness.
-    """
-    prefix = f"https://search.id/"
-    urls = [site.web.uri for site in urls_to_resolve]
-
-    # Create a dictionary that maps each unique URL to its first occurrence index
-    resolved_map = {}
-    for idx, url in enumerate(urls):
-        if url not in resolved_map:
-            resolved_map[url] = f"{prefix}{id}-{idx}"
-
-    return resolved_map
-
-
-def insert_citation_markers(text, citations_list):
-    """
-    Inserts citation markers into a text string based on start and end indices.
-
-    Args:
-        text (str): The original text string.
-        citations_list (list): A list of dictionaries, where each dictionary
-                               contains 'start_index', 'end_index', and
-                               'segment_string' (the marker to insert).
-                               Indices are assumed to be for the original text.
-
-    Returns:
-        str: The text with citation markers inserted.
-    """
-    # Sort citations by end_index in descending order.
-    # If end_index is the same, secondary sort by start_index descending.
-    # This ensures that insertions at the end of the string don't affect
-    # the indices of earlier parts of the string that still need to be processed.
-    sorted_citations = sorted(
-        citations_list, key=lambda c: (c["end_index"], c["start_index"]), reverse=True
-    )
-
-    modified_text = text
-    for citation_info in sorted_citations:
-        # These indices refer to positions in the *original* text,
-        # but since we iterate from the end, they remain valid for insertion
-        # relative to the parts of the string already processed.
-        end_idx = citation_info["end_index"]
-        marker_to_insert = ""
-        for segment in citation_info["segments"]:
-            marker_to_insert += f" [{segment['label']}]({segment['short_url']})"
-        # Insert the citation marker at the original end_idx position
-        modified_text = (
-            modified_text[:end_idx] + marker_to_insert + modified_text[end_idx:]
-        )
-
-    return modified_text
-
-
-def get_citations(response, resolved_urls_map):
-    """
-    Extracts and formats citation information from an OpenAI model's response.
-
-    This function processes the tool calls provided in the response to
-    construct a list of citation objects. Each citation object includes the
-    start and end indices of the text segment it refers to, and a string
-    containing formatted markdown links to the supporting web chunks.
-
-    Args:
-        response: The response object from the OpenAI model, expected to have
-                  a structure including `choices[0].message.tool_calls`.
-                  It also relies on a `resolved_map` being available in its
-                  scope to map chunk URIs to resolved URLs.
-
-    Returns:
-        list: A list of dictionaries, where each dictionary represents a citation
-              and has the following keys:
-              - "start_index" (int): The starting character index of the cited
-                                     segment in the original text. Defaults to 0
-                                     if not specified.
-              - "end_index" (int): The character index immediately after the
-                                   end of the cited segment (exclusive).
-              - "segments" (list[str]): A list of individual markdown-formatted
-                                        links for each grounding chunk.
-              - "segment_string" (str): A concatenated string of all markdown-
-                                        formatted links for the citation.
-              Returns an empty list if no valid choices or tool calls
-              are found, or if essential data is missing.
-    """
+def get_citations(response):
+    """Extract citations from the response."""
     citations = []
-
-    # Ensure response and necessary nested structures are present
-    if not response or not response.choices:
-        return citations
-
-    choice = response.choices[0]
-    if not choice.message.tool_calls:
-        return citations
-
-    # For OpenAI, we'll need to parse the tool call arguments to extract citations
-    # This is a simplified version - you may need to adjust based on your specific needs
-    for tool_call in choice.message.tool_calls:
-        if tool_call.function.name == "google_search":
-            # Parse the function arguments to extract citation information
-            # This is a placeholder - you'll need to implement the actual parsing
-            # based on how your search tool returns citation data
-            citation = {
-                "start_index": 0,
-                "end_index": len(choice.message.content) if choice.message.content else 0,
-                "segments": []
-            }
-            
-            # Add segments based on the search results
-            # This is a simplified implementation
-            citation["segments"].append({
-                "label": "Search Result",
-                "short_url": f"https://search.id/{resolved_urls_map.get('default', '0')}",
-                "value": "https://example.com"
-            })
-            
-            citations.append(citation)
-
+    if hasattr(response, "citations"):
+        citations = response.citations
     return citations
+
+
+def get_research_topic(messages):
+    """Extract the research topic from the messages."""
+    if not messages:
+        return ""
+    return messages[-1].content
+
+
+def insert_citation_markers(text, citations):
+    """Insert citation markers into the text."""
+    if not citations:
+        return text
+    
+    # Sort citations by start_index in reverse order to avoid index shifting
+    sorted_citations = sorted(citations, key=lambda x: x["start_index"], reverse=True)
+    
+    for citation in sorted_citations:
+        start = citation["start_index"]
+        end = citation["end_index"]
+        
+        # Get the text segment
+        segment = text[start:end]
+        
+        # Create citation markers for each segment
+        citation_markers = []
+        for seg in citation["segments"]:
+            marker = f"[{seg['label']}]({seg['short_url']})"
+            citation_markers.append(marker)
+        
+        # Replace the segment with citation markers
+        if citation_markers:
+            replacement = f"{segment} {' '.join(citation_markers)}"
+            text = text[:start] + replacement + text[end:]
+    
+    return text
+
+
+def resolve_urls(text, sources_gathered):
+    """Replace short URLs with original URLs in the text."""
+    for source in sources_gathered:
+        if source["short_url"] in text:
+            text = text.replace(source["short_url"], source["value"])
+    return text
+
+
+def get_database_connection(config: Configuration):
+    """获取PostgreSQL数据库连接"""
+    try:
+        connection = psycopg2.connect(
+            host=config.postgresql_host,
+            port=config.postgresql_port,
+            database=config.postgresql_database,
+            user=config.postgresql_username,
+            password=config.postgresql_password
+        )
+        return connection
+    except Exception as e:
+        raise Exception(f"数据库连接失败: {str(e)}")
+
+
+def get_table_schema(config: Configuration) -> Dict[str, Any]:
+    """获取数据库表结构信息"""
+    try:
+        # 创建SQLAlchemy引擎
+        connection_string = f"postgresql://{config.postgresql_username}:{config.postgresql_password}@{config.postgresql_host}:{config.postgresql_port}/{config.postgresql_database}"
+        engine = create_engine(connection_string)
+        
+        # 获取表名列表
+        table_names = [table.strip() for table in config.pandasai_tables.split(",") if table.strip()]
+        
+        if not table_names:
+            return {}
+        
+        # 获取表结构信息
+        inspector = inspect(engine)
+        schema_info = {}
+        
+        for table_name in table_names:
+            try:
+                # 获取列信息
+                columns = inspector.get_columns(table_name)
+                column_info = []
+                
+                for column in columns:
+                    column_info.append({
+                        "name": column["name"],
+                        "type": str(column["type"]),
+                        "nullable": column["nullable"],
+                        "default": column["default"]
+                    })
+                
+                # 获取主键信息
+                primary_keys = inspector.get_pk_constraint(table_name)
+                
+                # 获取索引信息
+                indexes = inspector.get_indexes(table_name)
+                
+                schema_info[table_name] = {
+                    "columns": column_info,
+                    "primary_keys": primary_keys.get("constrained_columns", []),
+                    "indexes": [idx["name"] for idx in indexes],
+                    "row_count": get_table_row_count(engine, table_name)
+                }
+                
+            except Exception as e:
+                print(f"获取表 {table_name} 结构失败: {str(e)}")
+                continue
+        
+        return schema_info
+        
+    except Exception as e:
+        raise Exception(f"获取数据库表结构失败: {str(e)}")
+
+
+def get_table_row_count(engine, table_name: str) -> int:
+    """获取表的行数"""
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+            return result.scalar()
+    except Exception:
+        return 0
+
+
+def can_analyze_with_data_analysis(query: str, database_schema: Dict[str, Any]) -> bool:
+    """判断查询是否适合通过数据分析节点处理"""
+    if not database_schema:
+        return False
+    
+    # 检查查询是否包含数据分析相关的关键词
+    data_analysis_keywords = [
+        "数据", "统计", "分析", "计算", "数值", "金额", "价格", "销量", "收入", "利润",
+        "数据", "统计", "分析", "计算", "数值", "金额", "价格", "销量", "收入", "利润",
+        "data", "statistics", "analysis", "calculate", "numeric", "amount", "price", "sales", "revenue", "profit",
+        "sum", "average", "count", "max", "min", "total", "percentage", "ratio"
+    ]
+    
+    query_lower = query.lower()
+    has_data_keywords = any(keyword in query_lower for keyword in data_analysis_keywords)
+    
+    # 检查是否有可用的数据库表
+    has_available_tables = len(database_schema) > 0
+    
+    return has_data_keywords and has_available_tables

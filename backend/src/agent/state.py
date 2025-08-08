@@ -20,6 +20,7 @@ class OverallState(TypedDict):
     max_research_loops: int
     research_loop_count: int
     reasoning_model: str
+    database_schema: dict  # 数据库表结构信息
 
 
 class ReflectionState(TypedDict):

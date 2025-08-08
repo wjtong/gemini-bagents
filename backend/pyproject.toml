@@ -18,6 +18,15 @@ dependencies = [
     "langgraph-api",
     "fastapi",
     "openai",
+    # PandasAI相关依赖
+    "pandasai==3.0.0-beta.18",
+    "pandasai-litellm>=0.0.1",
+    "pandasai-sql[postgres]>=0.1.7",
+    "openpyxl>=3.1.5",
+    # 数据库相关依赖
+    "psycopg2-binary>=2.9.0",
+    "pandas>=2.0.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 

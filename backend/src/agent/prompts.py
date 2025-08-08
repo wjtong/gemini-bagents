@@ -38,14 +38,19 @@ task_type_instructions = """Analyze the user's question and determine whether it
 
 Instructions:
 - If the question requires searching for current information, news, trends, or general knowledge, choose 'web_research'
-- If the question requires analyzing numerical data, statistics, financial data, or performing calculations, choose 'data_analysis'
+- If the question requires analyzing numerical data, statistics, financial data, or performing calculations on database tables, choose 'data_analysis'
 - Consider the nature of the information needed to answer the question
+- Data analysis questions typically involve: calculations, statistics, numerical comparisons, aggregations, trends analysis, financial data, sales data, etc.
 
 Examples:
 - "What are the latest developments in AI?" -> web_research
-- "What is the current stock price of Apple?" -> data_analysis
-- "How has the population of New York changed in the last decade?" -> data_analysis
+- "What is the current stock price of Apple?" -> web_research (requires current market data)
+- "How has the population of New York changed in the last decade?" -> data_analysis (if database has population data)
 - "What are the benefits of renewable energy?" -> web_research
+- "Calculate the total sales for each product category" -> data_analysis
+- "Show me the average customer satisfaction score by region" -> data_analysis
+- "What is the trend of monthly revenue over the past year?" -> data_analysis
+- "Compare the performance of different departments" -> data_analysis
 
 Format your response as a JSON object with these exact keys:
 - "task_type": Either "web_research" or "data_analysis"

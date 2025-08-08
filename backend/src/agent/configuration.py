@@ -46,6 +46,43 @@ class Configuration(BaseModel):
         metadata={"description": "The maximum number of research loops to perform."},
     )
 
+    # PostgreSQL配置
+    postgresql_host: str = Field(
+        default="localhost",
+        metadata={"description": "PostgreSQL数据库主机地址"},
+    )
+
+    postgresql_port: int = Field(
+        default=5432,
+        metadata={"description": "PostgreSQL数据库端口"},
+    )
+
+    postgresql_database: str = Field(
+        default="postgres",
+        metadata={"description": "PostgreSQL数据库名称"},
+    )
+
+    postgresql_username: str = Field(
+        default="postgres",
+        metadata={"description": "PostgreSQL数据库用户名"},
+    )
+
+    postgresql_password: str = Field(
+        default="",
+        metadata={"description": "PostgreSQL数据库密码"},
+    )
+
+    # PandasAI配置
+    pandasai_tables: str = Field(
+        default="",
+        metadata={"description": "要分析的数据库表名，多个表用逗号分隔"},
+    )
+
+    pandasai_model: str = Field(
+        default="gpt-4o-mini",
+        metadata={"description": "PandasAI使用的模型名称"},
+    )
+
     @classmethod
     def from_runnable_config(
         cls, config: Optional[RunnableConfig] = None
