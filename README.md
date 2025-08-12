@@ -10,7 +10,7 @@ This project demonstrates a fullstack application using a React frontend and a L
 - 🧠 Powered by a LangGraph agent for advanced research and conversational AI.
 - 🔍 Dynamic search query generation using OpenAI GPT models.
 - 🌐 Integrated web research via search APIs.
-- 📊 **NEW**: Intelligent data analysis using PandasAI 3.0.0-beta.18 for numerical queries and calculations.
+- 📊 **NEW**: Intelligent data analysis using OpenAI GPT for numerical queries and calculations (dummy implementation).
 - 🤔 Reflective reasoning to identify knowledge gaps and refine searches.
 - 📄 Generates answers with citations from gathered sources.
 - 🔄 Hot-reloading for both frontend and backend during development.
@@ -64,17 +64,6 @@ Create a `.env` file in the `backend/` directory with the following variables:
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_API_BASE=https://api.openai.com/v1  # 可选，自定义API端点
 
-# PostgreSQL数据库配置 (用于数据分析功能)
-POSTGRESQL_HOST=localhost
-POSTGRESQL_PORT=5432
-POSTGRESQL_DATABASE=your_database_name
-POSTGRESQL_USERNAME=your_username
-POSTGRESQL_PASSWORD=your_password
-
-# PandasAI配置 (用于数据分析功能)
-PANDASAI_TABLES=users,orders,products  # 要分析的数据库表名，多个表用逗号分隔
-PANDASAI_MODEL=gpt-4o-mini  # PandasAI使用的模型
-
 # Agent配置
 QUERY_GENERATOR_MODEL=gpt-4o-mini
 REFLECTION_MODEL=gpt-4o
@@ -82,8 +71,6 @@ ANSWER_MODEL=gpt-4o
 NUMBER_OF_INITIAL_QUERIES=3
 MAX_RESEARCH_LOOPS=2
 ```
-
-For detailed configuration instructions, see [DATA_ANALYSIS_SETUP.md](backend/DATA_ANALYSIS_SETUP.md).
 
 **4. Run Development Servers:**
 

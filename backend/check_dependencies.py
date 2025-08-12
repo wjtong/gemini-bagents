@@ -43,18 +43,12 @@ def check_dependencies() -> Dict[str, Tuple[bool, str]]:
         "langchain": ("langchain", "0.3.19"),
         "langchain_openai": ("langchain_openai", None),
         
-        # PandasAI相关
-        "pandasai": ("pandasai", "3.0.0-beta.18"),
-        "pandasai_litellm": ("pandasai_litellm", "0.0.1"),
-        "pandasai_sql": ("pandasai_sql", "0.1.7"),
-        
-        # 数据库相关
+        # 数据库相关依赖 (保留以备将来使用)
         "psycopg2": ("psycopg2", None),
         "pandas": ("pandas", "2.0.0"),
         "sqlalchemy": ("sqlalchemy", "2.0.0"),
         
         # 其他依赖
-        "openpyxl": ("openpyxl", "3.1.5"),
         "python_dotenv": ("dotenv", "1.0.1"),
         "fastapi": ("fastapi", None),
         "openai": ("openai", None),
@@ -88,8 +82,7 @@ def print_results(results: Dict[str, Tuple[bool, str]]):
         print("⚠️  部分依赖有问题，请检查安装。")
         print("\n建议操作：")
         print("1. 运行: pip install -e .")
-        print("2. 检查: pip list | grep pandasai")
-        print("3. 参考: backend/INSTALL.md")
+        print("2. 参考: backend/INSTALL.md")
     
     return all_passed
 

@@ -74,61 +74,13 @@ def get_database_connection(config: Configuration):
 
 
 def get_table_schema(config: Configuration) -> Dict[str, Any]:
-    """获取数据库表结构信息"""
-    try:
-        # 创建SQLAlchemy引擎
-        connection_string = f"postgresql://{config.postgresql_username}:{config.postgresql_password}@{config.postgresql_host}:{config.postgresql_port}/{config.postgresql_database}"
-        engine = create_engine(connection_string)
-        
-        # 获取表名列表
-        table_names = [table.strip() for table in config.pandasai_tables.split(",") if table.strip()]
-        
-        if not table_names:
-            return {}
-        
-        # 获取表结构信息
-        inspector = inspect(engine)
-        schema_info = {}
-        
-        for table_name in table_names:
-            try:
-                # 获取列信息
-                columns = inspector.get_columns(table_name)
-                column_info = []
-                
-                for column in columns:
-                    column_info.append({
-                        "name": column["name"],
-                        "type": str(column["type"]),
-                        "nullable": column["nullable"],
-                        "default": column["default"]
-                    })
-                
-                # 获取主键信息
-                primary_keys = inspector.get_pk_constraint(table_name)
-                
-                # 获取索引信息
-                indexes = inspector.get_indexes(table_name)
-                
-                schema_info[table_name] = {
-                    "columns": column_info,
-                    "primary_keys": primary_keys.get("constrained_columns", []),
-                    "indexes": [idx["name"] for idx in indexes],
-                    "row_count": get_table_row_count(engine, table_name)
-                }
-                
-            except Exception as e:
-                print(f"获取表 {table_name} 结构失败: {str(e)}")
-                continue
-        
-        return schema_info
-        
-    except Exception as e:
-        raise Exception(f"获取数据库表结构失败: {str(e)}")
+    """获取数据库表结构信息 (保留以备将来使用)"""
+    # 暂时返回空字典，因为pandasai功能已被移除
+    return {}
 
 
 def get_table_row_count(engine, table_name: str) -> int:
-    """获取表的行数"""
+    """获取表的行数 (保留以备将来使用)"""
     try:
         with engine.connect() as connection:
             result = connection.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
@@ -138,22 +90,6 @@ def get_table_row_count(engine, table_name: str) -> int:
 
 
 def can_analyze_with_data_analysis(query: str, database_schema: Dict[str, Any]) -> bool:
-    """判断查询是否适合通过数据分析节点处理"""
-    if not database_schema:
-        return False
-    
-    # 检查查询是否包含数据分析相关的关键词
-    data_analysis_keywords = [
-        "数据", "统计", "分析", "计算", "数值", "金额", "价格", "销量", "收入", "利润",
-        "数据", "统计", "分析", "计算", "数值", "金额", "价格", "销量", "收入", "利润",
-        "data", "statistics", "analysis", "calculate", "numeric", "amount", "price", "sales", "revenue", "profit",
-        "sum", "average", "count", "max", "min", "total", "percentage", "ratio"
-    ]
-    
-    query_lower = query.lower()
-    has_data_keywords = any(keyword in query_lower for keyword in data_analysis_keywords)
-    
-    # 检查是否有可用的数据库表
-    has_available_tables = len(database_schema) > 0
-    
-    return has_data_keywords and has_available_tables
+    """判断查询是否适合通过数据分析节点处理 (保留以备将来使用)"""
+    # 暂时返回False，因为pandasai功能已被移除
+    return False

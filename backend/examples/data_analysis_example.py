@@ -2,7 +2,7 @@
 """
 数据分析功能使用示例
 
-这个脚本展示了如何使用PandasAI进行数据分析。
+这个脚本展示了如何使用数据分析功能（当前为dummy实现）。
 """
 
 import os
@@ -24,11 +24,6 @@ def run_data_analysis_example():
     # 检查必要的环境变量
     required_vars = [
         "OPENAI_API_KEY",
-        "POSTGRESQL_HOST",
-        "POSTGRESQL_DATABASE",
-        "POSTGRESQL_USERNAME",
-        "POSTGRESQL_PASSWORD",
-        "PANDASAI_TABLES"
     ]
     
     missing_vars = []
@@ -38,7 +33,7 @@ def run_data_analysis_example():
     
     if missing_vars:
         print(f"❌ 缺少必要的环境变量: {', '.join(missing_vars)}")
-        print("请参考 DATA_ANALYSIS_SETUP.md 文件进行配置")
+        print("请参考 README.md 文件进行配置")
         return
     
     # 示例查询
@@ -53,6 +48,8 @@ def run_data_analysis_example():
     
     print("🚀 数据分析功能示例")
     print("=" * 50)
+    print("注意：当前使用dummy实现，实际数据分析功能已暂时移除")
+    print("=" * 50)
     
     for i, query in enumerate(example_queries, 1):
         print(f"\n📊 示例 {i}: {query}")
@@ -62,28 +59,26 @@ def run_data_analysis_example():
             # 创建消息
             messages = [HumanMessage(content=query)]
             
-            # 运行图
-            result = graph.invoke({"messages": messages})
+            # 运行分析
+            result = graph.invoke({
+                "messages": messages,
+                "initial_search_query_count": 2,
+                "max_research_loops": 1,
+                "reasoning_model": "gpt-4o",
+            })
             
-            # 获取结果
+            # 显示结果
             if result.get("messages"):
                 answer = result["messages"][-1].content
-                print(f"✅ 回答: {answer}")
+                print(f"✅ 分析结果:")
+                print(answer[:500] + "..." if len(answer) > 500 else answer)
             else:
-                print("❌ 没有获得回答")
+                print("❌ 没有生成分析结果")
                 
         except Exception as e:
-            print(f"❌ 执行失败: {str(e)}")
-        
-        print()
-
-def main():
-    """主函数"""
-    print("数据分析功能使用示例")
-    print("请确保已正确配置PostgreSQL数据库和PandasAI")
-    print("参考 DATA_ANALYSIS_SETUP.md 进行配置\n")
+            print(f"❌ 分析失败: {str(e)}")
     
-    run_data_analysis_example()
+    print("\n🎉 数据分析示例完成！")
 
 if __name__ == "__main__":
-    main() 
+    run_data_analysis_example() 

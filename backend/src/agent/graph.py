@@ -8,8 +8,6 @@ from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
 from openai import OpenAI
-from pandasai import PandasAI
-from pandasai_litellm.litellm import LiteLLM
 
 from agent.state import (
     OverallState,
@@ -253,9 +251,9 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
 
 
 def data_analysis(state: DataAnalysisState, config: RunnableConfig) -> OverallState:
-    """LangGraph node that performs data analysis using PandasAI.
+    """LangGraph node that performs data analysis using numerical data and calculations.
 
-    Executes data analysis using PandasAI to analyze database tables and perform calculations.
+    Executes data analysis using OpenAI GPT to analyze numerical data and perform calculations.
 
     Args:
         state: Current graph state containing the analysis query
@@ -264,96 +262,40 @@ def data_analysis(state: DataAnalysisState, config: RunnableConfig) -> OverallSt
     Returns:
         Dictionary with state update, including data_analysis_result
     """
+    # Configure
     configurable = Configuration.from_runnable_config(config)
+    formatted_prompt = data_analyzer_instructions.format(
+        research_topic=state["analysis_query"],
+    )
+
+    # Uses the OpenAI client for data analysis
+    response = openai_client.chat.completions.create(
+        model=configurable.query_generator_model,
+        messages=[{"role": "user", "content": formatted_prompt}],
+        temperature=0,
+    )
     
-    try:
-        # 初始化PandasAI
-        pandasai_llm = LiteLLM(
-            api_token=os.getenv("OPENAI_API_KEY"),
-            model=configurable.pandasai_model,
-            base_url=os.getenv("OPENAI_API_BASE")
-        )
-        
-        pandas_ai = PandasAI(
-            llm=pandasai_llm,
-            verbose=True,
-            enforce_privacy=True
-        )
-        
-        # 获取要分析的表名列表
-        table_names = [table.strip() for table in configurable.pandasai_tables.split(",") if table.strip()]
-        
-        if not table_names:
-            raise Exception("没有配置要分析的数据库表")
-        
-        # 读取数据库表
-        dataframes = {}
-        for table_name in table_names:
-            try:
-                # 使用pandasai读取表数据
-                query = f"SELECT * FROM {table_name}"
-                df = pandas_ai.run(query, dataframes={})
-                dataframes[table_name] = df
-            except Exception as e:
-                print(f"读取表 {table_name} 失败: {str(e)}")
-                continue
-        
-        if not dataframes:
-            raise Exception("无法读取任何数据库表")
-        
-        # 使用PandasAI分析数据
-        analysis_query = state["analysis_query"]
-        analysis_result = pandas_ai.run(analysis_query, dataframes=dataframes)
-        
-        # 如果结果是DataFrame，转换为字符串
-        if hasattr(analysis_result, 'to_string'):
-            analysis_result = analysis_result.to_string()
-        elif hasattr(analysis_result, '__str__'):
-            analysis_result = str(analysis_result)
-        else:
-            analysis_result = "分析完成，但结果格式不支持显示"
-        
-        # 创建引用结构
-        citations = [{
-            "start_index": 0,
-            "end_index": len(analysis_result),
-            "segments": [{
-                "label": "Data Analysis",
-                "short_url": f"https://analysis.id/{state['id']}",
-                "value": f"Database: {', '.join(table_names)}"
-            }]
+    # Create analysis result
+    analysis_result = response.choices[0].message.content or "No analysis results found."
+    
+    # Create a simple citation structure for data analysis
+    citations = [{
+        "start_index": 0,
+        "end_index": len(analysis_result),
+        "segments": [{
+            "label": "Data Analysis",
+            "short_url": f"https://analysis.id/{state['id']}",
+            "value": "https://data.example.com"
         }]
-        
-        modified_text = insert_citation_markers(analysis_result, citations)
-        sources_gathered = [item for citation in citations for item in citation["segments"]]
+    }]
+    
+    modified_text = insert_citation_markers(analysis_result, citations)
+    sources_gathered = [item for citation in citations for item in citation["segments"]]
 
-        return {
-            "sources_gathered": sources_gathered,
-            "data_analysis_result": [modified_text],
-        }
-        
-    except Exception as e:
-        error_message = f"数据分析失败: {str(e)}"
-        print(error_message)
-        
-        # 返回错误信息
-        citations = [{
-            "start_index": 0,
-            "end_index": len(error_message),
-            "segments": [{
-                "label": "Data Analysis Error",
-                "short_url": f"https://analysis.id/{state['id']}",
-                "value": "Error occurred during analysis"
-            }]
-        }]
-        
-        modified_text = insert_citation_markers(error_message, citations)
-        sources_gathered = [item for citation in citations for item in citation["segments"]]
-
-        return {
-            "sources_gathered": sources_gathered,
-            "data_analysis_result": [modified_text],
-        }
+    return {
+        "sources_gathered": sources_gathered,
+        "data_analysis_result": [modified_text],
+    }
 
 
 def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:

@@ -46,7 +46,7 @@ class Configuration(BaseModel):
         metadata={"description": "The maximum number of research loops to perform."},
     )
 
-    # PostgreSQL配置
+    # PostgreSQL配置 (保留以备将来使用)
     postgresql_host: str = Field(
         default="localhost",
         metadata={"description": "PostgreSQL数据库主机地址"},
@@ -70,17 +70,6 @@ class Configuration(BaseModel):
     postgresql_password: str = Field(
         default="",
         metadata={"description": "PostgreSQL数据库密码"},
-    )
-
-    # PandasAI配置
-    pandasai_tables: str = Field(
-        default="",
-        metadata={"description": "要分析的数据库表名，多个表用逗号分隔"},
-    )
-
-    pandasai_model: str = Field(
-        default="gpt-4o-mini",
-        metadata={"description": "PandasAI使用的模型名称"},
     )
 
     @classmethod
